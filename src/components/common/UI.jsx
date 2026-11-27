@@ -3,7 +3,7 @@ import { Search, X, ChevronLeft, ChevronRight } from 'lucide-react'
 
 export function Button({ children, variant = 'primary', className = '', ...props }) {
   const styles = {
-    primary: 'bg-navy text-white hover:bg-[#203456] shadow-sm shadow-navy/10',
+    primary: 'bg-[#183c99] text-white hover:bg-[#12327f] shadow-sm shadow-blue-900/15',
     secondary: 'bg-white text-ink border border-line hover:bg-slate-50',
     subtle: 'text-muted hover:bg-slate-100 hover:text-ink',
     danger: 'bg-red-50 text-red-700 hover:bg-red-100',
@@ -31,26 +31,26 @@ export function Badge({ children, tone, className = '' }) {
 
 export function StatCard({ label, value, note, icon: Icon, accent = 'blue' }) {
   const accents = { blue: 'bg-blue-50 text-blue-700', violet: 'bg-violet-50 text-violet-700', amber: 'bg-amber-50 text-amber-700', green: 'bg-emerald-50 text-emerald-700', rose: 'bg-rose-50 text-rose-700' }
-  return <div className="group rounded-2xl border border-line bg-white p-5 shadow-card transition duration-200 hover:-translate-y-0.5 hover:shadow-lg">
+  return <div className="group rounded-xl border border-line bg-white p-4 shadow-card transition duration-200 hover:-translate-y-0.5 hover:shadow-lg sm:p-5">
     <div className="flex items-start justify-between gap-3">
-      <div><p className="text-[13px] font-medium text-muted">{label}</p><p className="mt-3 text-[32px] font-bold leading-none tracking-tight text-ink">{value}</p></div>
-      {Icon && <span className={`grid h-11 w-11 place-items-center rounded-[14px] ring-1 ring-black/[.025] ${accents[accent]}`}><Icon size={19} /></span>}
+      <div><p className="text-[10px] font-semibold uppercase tracking-[.12em] text-muted">{label}</p><p className="mt-2 font-display text-[30px] font-bold leading-none tracking-tight text-ink">{value}</p></div>
+      {Icon && <span className={`grid h-10 w-10 place-items-center rounded-xl ring-1 ring-black/[.025] ${accents[accent]}`}><Icon size={18} /></span>}
     </div>
     {note && <p className="mt-3 text-xs text-muted">{note}</p>}
   </div>
 }
 
 export function PageHeader({ eyebrow, title, description, action }) {
-  return <div className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-    <div>{eyebrow && <p className="mb-2 text-[10px] font-bold uppercase tracking-[.17em] text-blue-700">{eyebrow}</p>}<h1 className="text-[26px] font-bold tracking-[-.035em] text-ink sm:text-[32px]">{title}</h1>{description && <p className="mt-2 text-[13px] text-muted">{description}</p>}</div>
+  return <div className="page-header mb-5 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+    <div className="min-w-0">{eyebrow && <p className="mb-1.5 text-[9px] font-bold uppercase tracking-[.16em] text-blue-700">{eyebrow}</p>}<h1 className="font-display text-[25px] font-bold leading-tight tracking-[-.025em] text-ink sm:text-[29px]">{title}</h1>{description && <p className="mt-1.5 max-w-3xl text-[12px] leading-relaxed text-muted">{description}</p>}</div>
     {action}
   </div>
 }
 
 export function Panel({ title, subtitle, action, children, className = '' }) {
-  return <section className={`overflow-hidden rounded-2xl border border-line bg-white shadow-card ${className}`}>
-    {(title || action) && <div className="flex flex-col justify-between gap-3 border-b border-line px-5 py-4 sm:flex-row sm:items-center sm:px-6"><div>{title && <h2 className="text-[14px] font-semibold tracking-[-.01em] text-ink">{title}</h2>}{subtitle && <p className="mt-1 text-xs text-muted">{subtitle}</p>}</div>{action}</div>}
-    <div className="p-5 sm:p-6">{children}</div>
+  return <section className={`overflow-hidden rounded-xl border border-line bg-white shadow-card ${className}`}>
+    {(title || action) && <div className="flex flex-col justify-between gap-3 border-b border-line px-4 py-3.5 sm:flex-row sm:items-center sm:px-5"><div>{title && <h2 className="font-display text-[16px] font-bold leading-snug tracking-[-.015em] text-ink">{title}</h2>}{subtitle && <p className="mt-1 text-[11px] text-muted">{subtitle}</p>}</div>{action}</div>}
+    <div className="p-4 sm:p-5">{children}</div>
   </section>
 }
 

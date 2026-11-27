@@ -6,6 +6,7 @@ import { useAppData } from '../../context/AppDataContext'
 import { subjects } from '../../data/mockData'
 import { downloadCsv } from '../../utils/downloadCsv'
 import { useAuth } from '../../context/AuthContext'
+import FamilyDashboard from './FamilyDashboard'
 
 function ParentPortal() {
   const { grades, gateEvents, students, attendanceRecords, announcements, systemSettings } = useAppData()
@@ -54,5 +55,5 @@ export default function ParentPages() {
   if (path.endsWith('/academics')) return <ParentAcademics />
   if (path.endsWith('/attendance')) return <ParentAttendance />
   if (path.endsWith('/announcements')) return <Announcements />
-  return <ParentPortal />
+  return <FamilyDashboard />
 }

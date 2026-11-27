@@ -28,6 +28,7 @@ from .models import (
     Student,
     Subject,
     SystemSetting,
+    TimetableEntry,
     UserAccount,
     Visitor,
 )
@@ -51,6 +52,8 @@ from .schemas import (
     StaffResponse,
     SystemSettingInput,
     SystemSettingResponse,
+    TimetableEntryInput,
+    TimetableEntryResponse,
     UserPrincipal,
     VisitorInput,
     VisitorResponse,
@@ -929,3 +932,187 @@ def dashboard_summary(
         "pendingLeaves": pending_leaves,
         "activeVisitors": active_visitors,
     }
+
+
+def _timetable_entry_response(entry: TimetableEntry) -> TimetableEntryResponse:
+    return TimetableEntryResponse(
+        id=str(entry.id),
+        class_name=entry.school_class.name,
+        subject=entry.subject.name,
+        teacher_id=entry.teacher_id,
+        teacher_name=entry.teacher.full_name,
+        day_of_week=entry.day_of_week,
+        start_time=entry.start_time,
+        end_time=entry.end_time,
+        room=entry.room,
+    )
+
+
+def _timetable_conflict(
+    session: Session,
+    payload: TimetableEntryInput,
+    class_id: int,
+    exclude_id: UUID | None = None,
+) -> bool:
+    query = select(TimetableEntry).where(
+        TimetableEntry.day_of_week == payload.day_of_week,
+        TimetableEntry.start_time < payload.end_time,
+        TimetableEntry.end_time > payload.start_time,
+        (
+            (TimetableEntry.class_id == class_id)
+            | (TimetableEntry.teacher_id == payload.teacher_id)
+            | (TimetableEntry.room == payload.room.strip())
+        ),
+    )
+    if exclude_id is not None:
+        query = query.where(TimetableEntry.id != exclude_id)
+    return session.scalar(query.limit(1)) is not None
+
+
+def _timetable_references(
+    session: Session, payload: TimetableEntryInput
+) -> tuple[SchoolClass, Subject, StaffMember]:
+    school_class = session.scalar(
+        select(SchoolClass).where(SchoolClass.name == payload.class_name.strip())
+    )
+    subject = session.scalar(
+        select(Subject).where(Subject.name == payload.subject.strip())
+    )
+    teacher = session.get(StaffMember, payload.teacher_id)
+    if school_class is None or subject is None:
+        raise HTTPException(status_code=404, detail="Class or subject not found")
+    if teacher is None or teacher.role != "Teacher" or teacher.status != "Active":
+        raise HTTPException(status_code=404, detail="Active teacher not found")
+    if payload.end_time <= payload.start_time:
+        raise HTTPException(
+            status_code=422, detail="End time must be later than start time"
+        )
+    return school_class, subject, teacher
+
+
+def _raise_on_timetable_conflict(
+    session: Session,
+    payload: TimetableEntryInput,
+    class_id: int,
+    exclude_id: UUID | None = None,
+) -> None:
+    if _timetable_conflict(session, payload, class_id, exclude_id):
+        raise HTTPException(
+            status_code=409,
+            detail="This time conflicts with another class, teacher, or room booking",
+        )
+
+
+@app.get(
+    "/api/timetable",
+    response_model=list[TimetableEntryResponse],
+    response_model_by_alias=True,
+)
+def list_timetable(
+    session: DbSession,
+    account: Annotated[
+        UserPrincipal,
+        Depends(require_roles("principal", "office", "teacher", "student", "parent")),
+    ],
+):
+    query = (
+        select(TimetableEntry)
+        .join(TimetableEntry.school_class)
+        .join(TimetableEntry.subject)
+        .join(TimetableEntry.teacher)
+    )
+    if account.role == "teacher":
+        query = query.where(TimetableEntry.teacher_id == account.staff_id)
+    elif account.role == "student":
+        student_class_id = session.scalar(
+            select(Student.class_id).where(Student.id == account.student_id)
+        )
+        if student_class_id is None:
+            return []
+        query = query.where(TimetableEntry.class_id == student_class_id)
+    elif account.role == "parent":
+        query = (
+            query.join(Student, Student.class_id == TimetableEntry.class_id)
+            .join(Student.parents)
+            .where(Parent.id == account.parent_id)
+            .distinct()
+        )
+    entries = session.scalars(
+        query.order_by(
+            TimetableEntry.day_of_week,
+            TimetableEntry.start_time,
+            TimetableEntry.class_id,
+        )
+    ).all()
+    return [_timetable_entry_response(entry) for entry in entries]
+
+
+@app.post(
+    "/api/timetable",
+    response_model=TimetableEntryResponse,
+    response_model_by_alias=True,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_timetable_entry(
+    payload: TimetableEntryInput,
+    session: DbSession,
+    account: Annotated[UserPrincipal, Depends(require_roles("principal", "office"))],
+):
+    school_class, subject, _ = _timetable_references(session, payload)
+    _raise_on_timetable_conflict(session, payload, school_class.id)
+    entry = TimetableEntry(
+        class_id=school_class.id,
+        subject_id=subject.id,
+        teacher_id=payload.teacher_id,
+        day_of_week=payload.day_of_week,
+        start_time=payload.start_time,
+        end_time=payload.end_time,
+        room=payload.room.strip(),
+    )
+    session.add(entry)
+    session.commit()
+    session.refresh(entry)
+    return _timetable_entry_response(entry)
+
+
+@app.put(
+    "/api/timetable/{entry_id}",
+    response_model=TimetableEntryResponse,
+    response_model_by_alias=True,
+)
+def update_timetable_entry(
+    entry_id: UUID,
+    payload: TimetableEntryInput,
+    session: DbSession,
+    account: Annotated[UserPrincipal, Depends(require_roles("principal", "office"))],
+):
+    entry = session.get(TimetableEntry, entry_id)
+    if entry is None:
+        raise HTTPException(status_code=404, detail="Timetable entry not found")
+    school_class, subject, _ = _timetable_references(session, payload)
+    _raise_on_timetable_conflict(
+        session, payload, school_class.id, exclude_id=entry.id
+    )
+    entry.class_id = school_class.id
+    entry.subject_id = subject.id
+    entry.teacher_id = payload.teacher_id
+    entry.day_of_week = payload.day_of_week
+    entry.start_time = payload.start_time
+    entry.end_time = payload.end_time
+    entry.room = payload.room.strip()
+    session.commit()
+    session.refresh(entry)
+    return _timetable_entry_response(entry)
+
+
+@app.delete("/api/timetable/{entry_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_timetable_entry(
+    entry_id: UUID,
+    session: DbSession,
+    account: Annotated[UserPrincipal, Depends(require_roles("principal", "office"))],
+):
+    entry = session.get(TimetableEntry, entry_id)
+    if entry is None:
+        raise HTTPException(status_code=404, detail="Timetable entry not found")
+    session.delete(entry)
+    session.commit()

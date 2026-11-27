@@ -304,6 +304,54 @@ def test_grade_staff_visitor_and_attendance_updates_are_persistent(client):
     assert checked_out.json()["checkOut"] is not None
 
 
+def test_timetable_crud_teacher_scope_and_conflicts(client):
+    principal_headers = login(client)
+    teacher_headers = login(
+        client,
+        "teacher@example.edu",
+        "another-secure-test-password",
+    )
+    payload = {
+        "className": "Grade 9A",
+        "subject": "Mathematics",
+        "teacherId": "ST-TEACHER",
+        "dayOfWeek": "Monday",
+        "startTime": "08:00",
+        "endTime": "08:45",
+        "room": "Room 204",
+    }
+
+    created = client.post("/api/timetable", headers=principal_headers, json=payload)
+    assert created.status_code == 201
+    entry = created.json()
+    assert entry["className"] == "Grade 9A"
+    assert entry["teacherName"] == "Teacher User"
+
+    assert client.get("/api/timetable", headers=teacher_headers).json() == [entry]
+    assert (
+        client.post("/api/timetable", headers=teacher_headers, json=payload).status_code
+        == 403
+    )
+
+    conflict = {**payload, "startTime": "08:30", "endTime": "09:00"}
+    assert (
+        client.post("/api/timetable", headers=principal_headers, json=conflict).status_code
+        == 409
+    )
+
+    updated = {**payload, "startTime": "09:00", "endTime": "09:45"}
+    changed = client.put(
+        f"/api/timetable/{entry['id']}", headers=principal_headers, json=updated
+    )
+    assert changed.status_code == 200
+    assert changed.json()["startTime"] == "09:00:00"
+    assert (
+        client.delete(f"/api/timetable/{entry['id']}", headers=principal_headers).status_code
+        == 204
+    )
+    assert client.get("/api/timetable", headers=principal_headers).json() == []
+
+
 def test_system_settings_persist_and_control_workflows(client):
     principal_headers = login(client)
     teacher_headers = login(
@@ -398,3 +446,60 @@ def test_parent_can_load_only_linked_student_records(client):
         headers=headers,
         json={"enabled": False},
     ).status_code == 403
+
+
+def test_student_and_parent_timetable_reads_are_class_scoped(client):
+    principal_headers = login(client)
+    payload = {
+        "className": "Grade 9A",
+        "subject": "Mathematics",
+        "teacherId": "ST-TEACHER",
+        "dayOfWeek": "Monday",
+        "startTime": "08:00",
+        "endTime": "08:45",
+        "room": "Room 204",
+    }
+    linked_entry = client.post("/api/timetable", headers=principal_headers, json=payload)
+    other_entry = client.post(
+        "/api/timetable",
+        headers=principal_headers,
+        json={**payload, "className": "Grade 10A", "startTime": "09:00", "endTime": "09:45"},
+    )
+    assert linked_entry.status_code == other_entry.status_code == 201
+
+    with SessionLocal() as session:
+        parent = Parent(
+            full_name="Linked Parent",
+            email="schedule.parent@example.edu",
+            phone="+94770000999",
+        )
+        student = session.scalar(select(Student).where(Student.id == "CC-0001"))
+        student.parents.append(parent)
+        session.add(
+            UserAccount(
+                email="schedule.student@example.edu",
+                password_hash=hash_password("student-schedule-password"),
+                role="student",
+                student_id=student.id,
+            )
+        )
+        session.flush()
+        session.add(
+            UserAccount(
+                email="schedule.parent@example.edu",
+                password_hash=hash_password("parent-schedule-password"),
+                role="parent",
+                parent_id=parent.id,
+            )
+        )
+        session.commit()
+
+    student_headers = login(
+        client, "schedule.student@example.edu", "student-schedule-password"
+    )
+    parent_headers = login(
+        client, "schedule.parent@example.edu", "parent-schedule-password"
+    )
+    expected = [linked_entry.json()]
+    assert client.get("/api/timetable", headers=student_headers).json() == expected
+    assert client.get("/api/timetable", headers=parent_headers).json() == expected

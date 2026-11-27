@@ -1,4 +1,4 @@
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { BookOpen, CalendarDays, GraduationCap, Users } from 'lucide-react'
 import { Badge, Button, DataTable, PageHeader, Panel, StatCard } from '../../components/common/UI'
 import BiometricSim from '../../components/modules/BiometricSim'
@@ -8,10 +8,26 @@ import { useAuth } from '../../context/AuthContext'
 import { subjects } from '../../data/mockData'
 
 function TeacherDashboard() {
-  const { leaves } = useAppData()
+  const { leaves, timetable } = useAppData()
   const { user } = useAuth()
+  const navigate = useNavigate()
   const pending = leaves.filter((leave) => leave.status === 'Pending' && leave.name === user?.name).length
-  return <><PageHeader eyebrow="Teaching tools" title={`Good morning, ${user?.name ?? 'Teacher'}`} description="Your teaching day at a glance." action={<Button variant="secondary"><CalendarDays size={15} />Open timetable</Button>} /><div className="grid gap-4 sm:grid-cols-3"><StatCard label="Assigned classes" value="4" note="Grades 8–10" icon={Users} accent="blue" /><StatCard label="Students" value="126" note="Across all sections" icon={GraduationCap} accent="violet" /><StatCard label="Leave requests" value={pending} note="Awaiting principal review" icon={CalendarDays} accent="amber" /></div><div className="mt-5 grid gap-5 xl:grid-cols-2"><BiometricSim /><Panel title="Today’s timetable" subtitle={new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}><div className="space-y-3">{[['08:00 – 08:45', 'Mathematics', 'Grade 9A', 'Room 204'], ['09:00 – 09:45', 'Mathematics', 'Grade 10A', 'Room 204'], ['11:15 – 12:00', 'Mathematics', 'Grade 8B', 'Room 105'], ['13:00 – 13:45', 'Mathematics', 'Grade 9B', 'Room 204']].map(([time, subject, group, room], index) => <div key={time} className="flex items-center gap-3 rounded-lg border border-line p-3"><span className={`h-9 w-1 rounded-full ${index === 0 ? 'bg-blue-600' : 'bg-slate-200'}`} /><div className="min-w-0 flex-1"><p className="text-sm font-semibold text-ink">{subject}</p><p className="text-xs text-muted">{group} · {room}</p></div><span className="text-xs font-medium text-muted">{time}</span></div>)}</div></Panel></div></>
+  const today = new Date().toLocaleDateString('en', { weekday: 'long' })
+  const todayEntries = timetable
+    .filter((entry) => entry.dayOfWeek === today && (!user?.staffId || entry.teacherId === user.staffId))
+    .sort((left, right) => left.startTime.localeCompare(right.startTime))
+  return <><PageHeader eyebrow="Teaching tools" title={`Good morning, ${user?.name ?? 'Teacher'}`} description="Your teaching day at a glance." action={<Button variant="secondary" onClick={() => navigate('/teacher/timetable')}><CalendarDays size={15} />Open timetable</Button>} /><div className="grid gap-4 sm:grid-cols-3"><StatCard label="Assigned classes" value={new Set(timetable.map((entry) => entry.className)).size} note="From your weekly schedule" icon={Users} accent="blue" /><StatCard label="Students" value="126" note="Across all sections" icon={GraduationCap} accent="violet" /><StatCard label="Leave requests" value={pending} note="Awaiting principal review" icon={CalendarDays} accent="amber" /></div><div className="mt-5 grid gap-5 xl:grid-cols-2"><BiometricSim /><Panel title="Today’s timetable" subtitle={new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}>{todayEntries.length ? <div className="space-y-3">{todayEntries.map((entry) => <div key={entry.id} className="flex items-center gap-3 rounded-lg border border-line p-3"><span className="h-9 w-1 rounded-full bg-blue-600" /><div className="min-w-0 flex-1"><p className="text-sm font-semibold text-ink">{entry.subject}</p><p className="text-xs text-muted">{entry.className} · {entry.room}</p></div><span className="text-xs font-medium text-muted">{entry.startTime.slice(0, 5)} – {entry.endTime.slice(0, 5)}</span></div>)}</div> : <p className="py-8 text-center text-sm text-muted">No classes are scheduled for today.</p>}</Panel></div></>
+}
+
+function TeacherTimetable() {
+  const { timetable } = useAppData()
+  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+  return <><PageHeader eyebrow="Teaching tools" title="My timetable" description="Your weekly classes, synced from the school schedule." />{days.map((day) => {
+    const entries = timetable
+      .filter((entry) => entry.dayOfWeek === day)
+      .sort((left, right) => left.startTime.localeCompare(right.startTime))
+    return <Panel key={day} title={day} className="mb-4">{entries.length ? <div className="divide-y divide-line">{entries.map((entry) => <div key={entry.id} className="flex flex-wrap items-center gap-3 py-3 first:pt-0 last:pb-0"><span className="w-28 text-sm font-semibold text-ink">{entry.startTime.slice(0, 5)} – {entry.endTime.slice(0, 5)}</span><div className="min-w-0 flex-1"><p className="text-sm font-semibold text-ink">{entry.subject}</p><p className="text-xs text-muted">{entry.className} · {entry.room}</p></div></div>)}</div> : <p className="text-sm text-muted">No classes scheduled.</p>}</Panel>
+  })}</>
 }
 
 function GradeManagement() {
@@ -36,6 +52,7 @@ function ClassAttendance() {
 
 export default function TeacherPages() {
   const path = useLocation().pathname
+  if (path.endsWith('/timetable')) return <TeacherTimetable />
   if (path.endsWith('/grades')) return <GradeManagement />
   if (path.endsWith('/leaves')) return <TeacherLeave />
   if (path.endsWith('/attendance')) return <ClassAttendance />
