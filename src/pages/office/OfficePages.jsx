@@ -5,6 +5,7 @@ import { Badge, Button, DataTable, Field, Modal, PageHeader, Panel, SelectField,
 import IDCardPreview from '../../components/modules/IDCardPreview'
 import { useAppData } from '../../context/AppDataContext'
 import { classes } from '../../data/mockData'
+import TimetableManagement from '../common/TimetableManagement'
 
 function OfficeDashboard() {
   const { staff, students, staffAttendance } = useAppData()
@@ -48,6 +49,7 @@ function Devices() {
 
 export default function OfficePages() {
   const path = useLocation().pathname
+  if (path.endsWith('/timetable')) return <TimetableManagement />
   if (path.endsWith('/enrollment')) return <Enrollment />
   if (path.endsWith('/staff')) return <StaffDirectory />
   if (path.endsWith('/devices')) return <Devices />

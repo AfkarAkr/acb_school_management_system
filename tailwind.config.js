@@ -4,11 +4,11 @@ export default {
   theme: {
     extend: {
       colors: {
-        navy: '#14213d',
-        ink: '#17243b',
-        muted: '#738198',
-        canvas: '#f5f7fb',
-        line: '#e7ebf2',
+        navy: '#1b2540',
+        ink: '#17244a',
+        muted: '#697792',
+        canvas: '#f6f7ff',
+        line: '#e3e8f4',
       },
       boxShadow: {
         card: '0 8px 26px rgba(21, 36, 65, 0.045)',

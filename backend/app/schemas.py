@@ -70,6 +70,30 @@ class GradeResponse(BaseModel):
     teacher_id: str | None = Field(serialization_alias="teacherId")
 
 
+class TimetableEntryInput(BaseModel):
+    class_name: str = Field(alias="className", min_length=1, max_length=30)
+    subject: str = Field(min_length=1, max_length=80)
+    teacher_id: str = Field(alias="teacherId", min_length=1, max_length=20)
+    day_of_week: Literal["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"] = Field(
+        alias="dayOfWeek"
+    )
+    start_time: time = Field(alias="startTime")
+    end_time: time = Field(alias="endTime")
+    room: str = Field(min_length=1, max_length=30)
+
+
+class TimetableEntryResponse(BaseModel):
+    id: str
+    class_name: str = Field(serialization_alias="className")
+    subject: str
+    teacher_id: str = Field(serialization_alias="teacherId")
+    teacher_name: str = Field(serialization_alias="teacherName")
+    day_of_week: str = Field(serialization_alias="dayOfWeek")
+    start_time: time = Field(serialization_alias="startTime")
+    end_time: time = Field(serialization_alias="endTime")
+    room: str
+
+
 class StaffInput(BaseModel):
     name: str = Field(min_length=1, max_length=160)
     email: EmailStr | None = None

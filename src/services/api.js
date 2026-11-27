@@ -53,6 +53,12 @@ export const api = {
     list: (studentId) => request(`/grades${studentId ? `?studentId=${encodeURIComponent(studentId)}` : ''}`),
     save: (grade) => request('/grades', { method: 'PUT', body: JSON.stringify(grade) }),
   },
+  timetable: {
+    list: () => request('/timetable'),
+    create: (entry) => request('/timetable', { method: 'POST', body: JSON.stringify(entry) }),
+    update: (id, entry) => request(`/timetable/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(entry) }),
+    delete: (id) => request(`/timetable/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  },
   staff: {
     list: () => request('/staff'),
     create: (staff) => request('/staff', { method: 'POST', body: JSON.stringify(staff) }),

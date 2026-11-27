@@ -1,25 +1,80 @@
 import { useMemo, useState } from 'react'
-import { useLocation } from 'react-router-dom'
-import { Activity, Check, Clock3, GraduationCap, Pencil, Plus, ShieldCheck, Trash2, UserRound, Users, X } from 'lucide-react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { Activity, ArrowDownToLine, ArrowRight, ArrowUpFromLine, Check, Clock3, GraduationCap, Pencil, Plus, ShieldCheck, Trash2, UserRound, Users, X } from 'lucide-react'
 import { Badge, Button, DataTable, Field, Modal, PageHeader, Panel, SelectField, StatCard } from '../../components/common/UI'
 import { useAppData } from '../../context/AppDataContext'
 import { classes } from '../../data/mockData'
+import TimetableManagement from '../common/TimetableManagement'
 
 function Overview() {
-  const { leaves, staff, students, visitors, gateEvents, dashboard } = useAppData()
+  const { leaves, staff, students, visitors, gateEvents, dashboard, announcements } = useAppData()
+  const navigate = useNavigate()
   const pending = leaves.filter((leave) => leave.status === 'Pending').length
   const activeVisitors = visitors.filter((visitor) => visitor.status === 'On premises').length
-  return <><PageHeader eyebrow={new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })} title="Good morning, Principal" description="Here’s your school-wide overview for today." action={<Button variant="secondary"><Activity size={15} />View live activity</Button>} />
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{[
-      ['Total students', (dashboard?.students ?? students.length).toLocaleString(), 'Active student records', Users, 'blue'],
-      ['Teaching staff', dashboard?.teachers ?? staff.filter((person) => person.role === 'Teacher').length, 'Active teacher records', GraduationCap, 'violet'],
-      ['Office staff', dashboard?.officeStaff ?? staff.filter((person) => person.role === 'Office Staff').length, 'Active office records', UserRound, 'amber'],
-      ["Today's student attendance", `${dashboard?.attendancePercent ?? 0}%`, `${dashboard?.presentStudents ?? 0} present today`, Check, 'green'],
-      ['Pending short leaves', pending, 'Needs your review', Clock3, 'rose'],
-      ['Active visitors', activeVisitors, 'Currently on campus', ShieldCheck, 'blue'],
-    ].map(([label, value, note, icon, accent]) => <StatCard key={label} {...{ label, value, note, icon, accent }} />)}</div>
-    <div className="mt-6 grid gap-5 xl:grid-cols-[1.35fr_.8fr]">    <Panel title="Recent gate activity" subtitle="Student QR scans · live updates"><div className="space-y-4">{gateEvents.slice(0, 5).map((event) => <div key={event.id} className="flex items-center gap-3"><img src={event.student.avatar} alt="" className="h-9 w-9 rounded-full" /><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-ink">{event.student.name}</p><p className="text-xs text-muted">{event.student.id} · {event.student.className}</p></div><Badge tone={event.type === 'Entry' ? 'present' : 'pending'}>{event.type}</Badge><span className="text-xs text-muted">{event.time}</span></div>)}</div></Panel>
-      <Panel title="Pending approvals" subtitle="Short leave requests"><div className="space-y-4">{leaves.filter((leave) => leave.status === 'Pending').slice(0, 3).map((leave) => <div key={leave.id} className="flex items-start gap-3"><div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-amber-50 text-amber-700"><Clock3 size={17} /></div><div className="min-w-0 flex-1"><p className="text-sm font-semibold text-ink">{leave.name}</p><p className="mt-0.5 text-xs text-muted">{leave.slot} · {leave.reason}</p></div><Badge>Pending</Badge></div>)}{!pending && <p className="text-sm text-muted">You’re all caught up.</p>}</div></Panel></div>
+  const totalStudents = dashboard?.students ?? students.length
+  const presentStudents = dashboard?.presentStudents ?? 0
+  const attendancePercent = dashboard?.attendancePercent ?? 0
+  const recentEvents = gateEvents.slice(0, 6)
+  const entryCount = recentEvents.filter((event) => event.type === 'Entry').length
+  const exitCount = recentEvents.filter((event) => event.type === 'Exit').length
+  const pendingLeaves = leaves.filter((leave) => leave.status === 'Pending').slice(0, 4)
+
+  return <>
+    <PageHeader
+      eyebrow={new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+      title="Principal executive overview"
+      description="A clear view of today’s attendance, campus activity, and decisions awaiting your review."
+      action={<Button variant="secondary" onClick={() => navigate('/principal/security')}><Activity size={15} />Campus activity</Button>}
+    />
+
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <StatCard label="Enrolled students" value={totalStudents.toLocaleString()} note="Active student records" icon={Users} accent="blue" />
+      <StatCard label="Students present" value={presentStudents.toLocaleString()} note={`${attendancePercent}% of enrolled students`} icon={Check} accent="green" />
+      <StatCard label="Leave approvals" value={pending.toLocaleString()} note="Requests awaiting your review" icon={Clock3} accent="amber" />
+      <StatCard label="Visitors on campus" value={activeVisitors.toLocaleString()} note="Checked in and not yet checked out" icon={ShieldCheck} accent="violet" />
+    </div>
+
+    <div className="mt-4 grid items-start gap-4 xl:grid-cols-[1.35fr_.85fr]">
+      <Panel
+        title="Gate movement & campus activity"
+        subtitle="Most recent student ID scans"
+        action={<Button variant="secondary" className="min-h-8 px-3 py-1 text-xs" onClick={() => navigate('/principal/security')}>View security logs <ArrowRight size={14} /></Button>}
+      >
+        <div className="mb-4 flex flex-wrap gap-2">
+          <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800"><ArrowDownToLine size={14} />{entryCount} entries in recent activity</span>
+          <span className="inline-flex items-center gap-1.5 rounded-lg bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-800"><ArrowUpFromLine size={14} />{exitCount} exits in recent activity</span>
+        </div>
+        {recentEvents.length ? <div className="space-y-1">{recentEvents.map((event) => <div key={event.id} className="flex items-center gap-3 border-b border-line py-3 last:border-0">
+          <img src={event.student.avatar} alt="" className="h-9 w-9 rounded-full bg-slate-100" />
+          <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-ink">{event.student.name}</p><p className="text-[11px] text-muted">{event.student.id} · {event.student.className}</p></div>
+          <Badge tone={event.type === 'Entry' ? 'present' : 'pending'}>{event.type}</Badge><span className="shrink-0 text-[11px] text-muted">{event.time}</span>
+        </div>)}</div> : <p className="py-6 text-center text-sm text-muted">Gate scans will appear here when recorded.</p>}
+      </Panel>
+
+      <Panel
+        title="Faculty & staff leave authorization"
+        subtitle={`${pending} requests need a decision`}
+        action={<Button variant="secondary" className="min-h-8 px-3 py-1 text-xs" onClick={() => navigate('/principal/leaves')}>Review requests <ArrowRight size={14} /></Button>}
+      >
+        {pendingLeaves.length ? <div className="space-y-1">{pendingLeaves.map((leave) => <div key={leave.id} className="flex items-start gap-3 border-b border-line py-3 last:border-0">
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-amber-50 text-amber-700"><Clock3 size={16} /></span>
+          <div className="min-w-0 flex-1"><p className="text-sm font-semibold text-ink">{leave.name}</p><p className="mt-0.5 text-[11px] text-muted">{leave.date} · {leave.slot}</p><p className="mt-1 line-clamp-2 text-xs text-ink">{leave.reason}</p></div>
+          <Badge>Pending</Badge>
+        </div>)}</div> : <p className="py-6 text-center text-sm text-muted">No leave requests are waiting for approval.</p>}
+      </Panel>
+    </div>
+
+    <div className="mt-4 grid items-start gap-4 lg:grid-cols-2">
+      <Panel title="Division attendance & health" subtitle="Today’s recorded student attendance">
+        <div className="flex items-end justify-between gap-4"><div><p className="font-display text-3xl font-bold text-ink">{attendancePercent}%</p><p className="mt-1 text-xs text-muted">{presentStudents.toLocaleString()} present of {totalStudents.toLocaleString()} students</p></div><Badge tone={attendancePercent >= 90 ? 'present' : attendancePercent >= 75 ? 'pending' : 'absent'}>{attendancePercent >= 90 ? 'On track' : 'Review attendance'}</Badge></div>
+        <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-blue-700 transition-all" style={{ width: `${Math.min(100, Math.max(0, attendancePercent))}%` }} /></div>
+        <p className="mt-3 text-[11px] text-muted">Calculated from today’s recorded attendance data.</p>
+      </Panel>
+
+      <Panel title="Campus executive broadcast" subtitle="Latest school announcement">
+        {announcements[0] ? <div className="rounded-lg bg-blue-50/70 p-4"><p className="text-sm font-semibold text-ink">{announcements[0].title}</p><p className="mt-2 text-xs leading-relaxed text-muted">{announcements[0].body}</p><p className="mt-3 text-[10px] font-medium text-blue-800">{new Date(announcements[0].published_at).toLocaleDateString([], { month: 'long', day: 'numeric', year: 'numeric' })}</p></div> : <p className="py-6 text-center text-sm text-muted">No school announcements have been published.</p>}
+      </Panel>
+    </div>
   </>
 }
 
@@ -92,6 +147,7 @@ export default function PrincipalPages() {
   const path = useLocation().pathname
   if (path.endsWith('/students')) return <StudentDirectory />
   if (path.endsWith('/staff')) return <StaffDirectory />
+  if (path.endsWith('/timetable')) return <TimetableManagement />
   if (path.endsWith('/leaves')) return <LeaveApprovals />
   if (path.endsWith('/security')) return <SecurityLogs />
   if (path.endsWith('/config')) return <SystemConfig />

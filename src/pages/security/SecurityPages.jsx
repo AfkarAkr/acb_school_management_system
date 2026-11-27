@@ -1,14 +1,36 @@
 import { useState } from 'react'
 import { useLocation } from 'react-router-dom'
-import { Activity, Plus, Users } from 'lucide-react'
+import { Activity, ArrowDownToLine, ArrowUpFromLine, Plus, ShieldCheck, Users } from 'lucide-react'
 import { Badge, Button, DataTable, Field, Modal, PageHeader, Panel, SelectField, StatCard } from '../../components/common/UI'
 import VisitorForm from '../../components/modules/VisitorForm'
 import { useAppData } from '../../context/AppDataContext'
 
 function SecurityDashboard() {
-  const { visitors, gateEvents } = useAppData()
+  const { dashboard, gateEvents, students, visitors } = useAppData()
   const onsite = visitors.filter((visitor) => visitor.status === 'On premises').length
-  return <><PageHeader eyebrow="Campus safety" title="Gate operations" description="Student arrivals and visitor access, all in one place." /><div className="grid gap-4 sm:grid-cols-2"><StatCard label="Recent gate events" value={gateEvents.length.toLocaleString()} note="Logged student entries and exits" icon={Activity} accent="blue" /><StatCard label="Visitors on campus" value={onsite} note="Active check-ins" icon={Users} accent="amber" /></div><div className="mt-5"><GateScanPanel /></div><div className="mt-5 grid gap-5 xl:grid-cols-2"><Panel title="Live gate event feed" subtitle="Recent student entries and exits"><div className="space-y-4">{gateEvents.slice(0, 7).map((event) => <div key={event.id} className="flex items-center gap-3"><img src={event.student.avatar} alt="" className="h-9 w-9 rounded-full" /><div className="flex-1"><p className="text-sm font-semibold">{event.student.name}</p><p className="text-xs text-muted">{event.student.id} · {event.student.className}</p></div><Badge tone={event.type === 'Entry' ? 'present' : 'pending'}>{event.type}</Badge><span className="text-xs text-muted">{event.time}</span></div>)}</div></Panel><VisitorPanel /></div></>
+  const arrivals = gateEvents.filter((event) => event.type === 'Entry').length
+  const departures = gateEvents.filter((event) => event.type === 'Exit').length
+  const studentsPresent = dashboard?.presentStudents ?? students.filter((student) => student.attendance === 'Present').length
+  return <>
+    <PageHeader eyebrow="Campus safety · Gate operations" title="Gate security & access" description="Student arrivals, departures and visitor access in one place." />
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <StatCard label="Students present" value={studentsPresent.toLocaleString()} note="Based on school attendance records" icon={Users} accent="blue" />
+      <StatCard label="Recent entries" value={arrivals.toLocaleString()} note="Entry events in the current feed" icon={ArrowDownToLine} accent="green" />
+      <StatCard label="Recent exits" value={departures.toLocaleString()} note="Exit events in the current feed" icon={ArrowUpFromLine} accent="amber" />
+      <StatCard label="Visitors on campus" value={onsite.toLocaleString()} note="Active visitor check-ins" icon={ShieldCheck} accent="violet" />
+    </div>
+    <div className="mt-4"><GateScanPanel /></div>
+    <div className="mt-4 grid items-start gap-4 xl:grid-cols-[.9fr_1.1fr]">
+      <Panel title="Live gate event feed" subtitle="Most recent student entries and exits">
+        {gateEvents.length ? <div className="space-y-3">{gateEvents.slice(0, 7).map((event) => <div key={event.id} className="flex items-center gap-3 border-b border-line pb-3 last:border-0 last:pb-0">
+          <img src={event.student.avatar} alt="" className="h-9 w-9 rounded-full bg-slate-100" />
+          <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-ink">{event.student.name}</p><p className="text-[11px] text-muted">{event.student.id} · {event.student.className}</p></div>
+          <Badge tone={event.type === 'Entry' ? 'present' : 'pending'}>{event.type}</Badge><span className="shrink-0 text-[11px] text-muted">{event.time}</span>
+        </div>)}</div> : <p className="py-6 text-center text-sm text-muted">Gate scans will appear here when recorded.</p>}
+      </Panel>
+      <VisitorPanel />
+    </div>
+  </>
 }
 
 function GateScanPanel() {

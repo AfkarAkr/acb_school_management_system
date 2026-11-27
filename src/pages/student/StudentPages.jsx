@@ -7,6 +7,7 @@ import { useAppData } from '../../context/AppDataContext'
 import { subjects } from '../../data/mockData'
 import { downloadQrSvg } from '../../utils/downloadQr'
 import { downloadCsv } from '../../utils/downloadCsv'
+import StudentDashboard from './StudentDashboard'
 
 function StudentPortal() {
   const { grades, students, attendanceRecords } = useAppData()
@@ -43,5 +44,5 @@ export default function StudentPages() {
   if (path.endsWith('/academics')) return <Academics />
   if (path.endsWith('/attendance')) return <Attendance />
   if (path.endsWith('/id')) return <StudentPortal />
-  return <StudentPortal />
+  return <StudentDashboard />
 }

@@ -211,6 +211,36 @@ class Grade(Base):
     subject: Mapped[Subject] = relationship(back_populates="grades")
 
 
+class TimetableEntry(Base):
+    __tablename__ = "timetable_entries"
+    __table_args__ = (
+        CheckConstraint(
+            "day_of_week IN ('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday')",
+            name="ck_timetable_entries_day",
+        ),
+        CheckConstraint("end_time > start_time", name="ck_timetable_entries_time_range"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    class_id: Mapped[int] = mapped_column(
+        ForeignKey("school_classes.id", ondelete="RESTRICT"), nullable=False
+    )
+    subject_id: Mapped[int] = mapped_column(
+        ForeignKey("subjects.id", ondelete="RESTRICT"), nullable=False
+    )
+    teacher_id: Mapped[str] = mapped_column(
+        ForeignKey("staff_members.id", ondelete="RESTRICT"), nullable=False
+    )
+    day_of_week: Mapped[str] = mapped_column(String(10), nullable=False)
+    start_time: Mapped[time] = mapped_column(Time, nullable=False)
+    end_time: Mapped[time] = mapped_column(Time, nullable=False)
+    room: Mapped[str] = mapped_column(String(30), nullable=False)
+
+    school_class: Mapped[SchoolClass] = relationship()
+    subject: Mapped[Subject] = relationship()
+    teacher: Mapped[StaffMember] = relationship()
+
+
 class AttendanceRecord(Base):
     __tablename__ = "attendance_records"
     __table_args__ = (

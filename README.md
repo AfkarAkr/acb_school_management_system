@@ -75,9 +75,10 @@ For PostgreSQL, create `central_college_db` on your PostgreSQL server and replac
 ## Persistent workflows and current limits
 
 - Student enrollment, edits, and deletion; staff profile management; gradebook changes; leave requests and decisions; gate entry/exit; visitor check-in/check-out; staff biometric check-in/out; and principal feature settings persist through the API.
+- Principals and office staff can create, edit, and delete timetable entries. Teachers see only their own weekly schedule; overlapping class, teacher, or room bookings are rejected.
 - Parent/student academic, attendance, announcement, and gate views use database records. API changes update the current portal immediately, remain after reload, and sync to other open portals within about five seconds.
 - Biometric terminals and device heartbeat/latency are simulated; no physical reader, SMS/email notification provider, or camera-based QR decoder is connected. Security staff can submit a student ID or decoded QR value (`CENTRAL-COLLEGE:<student-id>`).
-- Timetables and a few presentational labels remain sample content rather than records managed by the database.
+- A few presentational labels remain sample content rather than records managed by the database.
 
 To run the backend test suite:
 

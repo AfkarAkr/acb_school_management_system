@@ -26,6 +26,12 @@ const mockAnnouncements = [
   { id: 'notice-2', title: 'Inter-house athletics meet', body: 'The annual athletics meet takes place on November 20. Students should arrive by 7:30 AM.', published_at: '2026-11-02T09:00:00Z' },
   { id: 'notice-3', title: 'Library hours update', body: 'The school library remains open until 4:00 PM on weekdays this term.', published_at: '2026-10-28T09:00:00Z' },
 ]
+const mockTimetable = [
+  { id: 'mock-1', className: 'Grade 9A', subject: 'Mathematics', teacherId: 'ST-001', teacherName: 'Aarav Fernando', dayOfWeek: 'Monday', startTime: '08:00:00', endTime: '08:45:00', room: 'Room 204' },
+  { id: 'mock-2', className: 'Grade 10A', subject: 'Mathematics', teacherId: 'ST-001', teacherName: 'Aarav Fernando', dayOfWeek: 'Monday', startTime: '09:00:00', endTime: '09:45:00', room: 'Room 204' },
+  { id: 'mock-3', className: 'Grade 8B', subject: 'Mathematics', teacherId: 'ST-001', teacherName: 'Aarav Fernando', dayOfWeek: 'Monday', startTime: '11:15:00', endTime: '12:00:00', room: 'Room 105' },
+  { id: 'mock-4', className: 'Grade 9B', subject: 'Mathematics', teacherId: 'ST-001', teacherName: 'Aarav Fernando', dayOfWeek: 'Monday', startTime: '13:00:00', endTime: '13:45:00', room: 'Room 204' },
+]
 const formatGrades = (records) => records.reduce((result, grade) => {
   const studentId = grade.studentId ?? grade.student_id
   result[studentId] = { ...result[studentId], [grade.subject]: grade.score }
@@ -60,6 +66,7 @@ export function AppDataProvider({ children }) {
     checkOut: null,
   })))
   const [announcements, setAnnouncements] = useState(API_ENABLED ? [] : mockAnnouncements)
+  const [timetable, setTimetable] = useState(API_ENABLED ? [] : mockTimetable)
   const [dashboard, setDashboard] = useState(API_ENABLED ? null : {
     students: 2000,
     staff: 100,
@@ -94,6 +101,7 @@ export function AppDataProvider({ children }) {
       setAttendanceRecords([])
       setStaffAttendance([])
       setAnnouncements([])
+      setTimetable([])
       setDashboard(null)
       setSystemSettings({})
       setLoadError('')
@@ -124,6 +132,7 @@ export function AppDataProvider({ children }) {
           summary,
           gradeRecords,
           settings,
+          timetableRecords,
         ] = await Promise.all([
           api.students.list(),
           api.leaves.list(),
@@ -138,6 +147,7 @@ export function AppDataProvider({ children }) {
             ? api.grades.list()
             : Promise.resolve([]),
           api.settings.list(),
+          ['principal', 'office', 'teacher', 'student', 'parent'].includes(role) ? api.timetable.list() : Promise.resolve([]),
         ])
         if (!active) return
         setStudents(studentRecords)
@@ -148,6 +158,7 @@ export function AppDataProvider({ children }) {
           ...notice,
           published_at: notice.publishedAt ?? notice.published_at,
         })))
+        setTimetable(timetableRecords)
         setStaff(staffRecords)
         setVisitors(visitorRecords.map((visitor) => ({
           ...visitor,
@@ -469,13 +480,67 @@ export function AppDataProvider({ children }) {
     return true
   }
 
+  const addTimetableEntry = async (entry) => {
+    if (API_ENABLED) {
+      try {
+        const saved = await api.timetable.create(entry)
+        setTimetable((current) => [...current, saved])
+        notify('Timetable entry added')
+        return saved
+      } catch (error) {
+        notify(`Could not add timetable entry: ${error.message}`)
+        return null
+      }
+    }
+    const saved = { ...entry, id: `local-${Date.now()}`, teacherName: staff.find((person) => person.id === entry.teacherId)?.name ?? '' }
+    setTimetable((current) => [...current, saved])
+    notify('Timetable entry added')
+    return saved
+  }
+
+  const updateTimetableEntry = async (id, changes) => {
+    if (API_ENABLED) {
+      try {
+        const saved = await api.timetable.update(id, changes)
+        setTimetable((current) => current.map((entry) => entry.id === id ? saved : entry))
+        notify('Timetable entry updated')
+        return saved
+      } catch (error) {
+        notify(`Could not update timetable entry: ${error.message}`)
+        return null
+      }
+    }
+    const saved = { ...changes, id, teacherName: staff.find((person) => person.id === changes.teacherId)?.name ?? '' }
+    setTimetable((current) => current.map((entry) => entry.id === id ? saved : entry))
+    notify('Timetable entry updated')
+    return saved
+  }
+
+  const deleteTimetableEntry = async (id) => {
+    if (API_ENABLED) {
+      try {
+        await api.timetable.delete(id)
+        setTimetable((current) => current.filter((entry) => entry.id !== id))
+        notify('Timetable entry deleted')
+        return true
+      } catch (error) {
+        notify(`Could not delete timetable entry: ${error.message}`)
+        return false
+      }
+    }
+    setTimetable((current) => current.filter((entry) => entry.id !== id))
+    notify('Timetable entry deleted')
+    return true
+  }
+
   const value = useMemo(() => ({
-    leaves, grades, students, staff, visitors, gateEvents, attendanceRecords,
+    leaves, grades, students, staff, visitors, gateEvents, attendanceRecords, timetable,
     staffAttendance, announcements, dashboard, systemSettings, loading, loadError, toast,
     addLeave, reviewLeave, updateGrade, recordGateEntry, addVisitor, checkoutVisitor,
     addStudent, updateStudent, deleteStudent, addStaffMember, updateStaffMember,
-    deleteStaffMember, recordStaffAttendance, updateSystemSetting, notify,
-  }), [leaves, grades, students, staff, visitors, gateEvents, attendanceRecords, staffAttendance, announcements, dashboard, systemSettings, loading, loadError, toast])
+    deleteStaffMember, recordStaffAttendance, updateSystemSetting, addTimetableEntry,
+    updateTimetableEntry, deleteTimetableEntry, notify,
+  }), [leaves, grades, students, staff, visitors, gateEvents, attendanceRecords, timetable, staffAttendance, announcements, dashboard, systemSettings, loading, loadError, toast])
   return <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>
 }
 
